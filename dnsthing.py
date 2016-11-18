@@ -69,9 +69,11 @@ class hostRegistry (object):
 
     def handle_start(self, event, container):
         self.register(container)
+        self.update_hosts()
 
     def handle_die(self, event, container):
         self.unregister(container)
+        self.update_hosts()
 
     def scan(self):
         '''Register any existing containers'''
@@ -80,6 +82,8 @@ class hostRegistry (object):
             container = self.client.inspect_container(container['Id'])
             LOG.debug('scan: %s', container)
             self.register(container)
+
+        self.update_hosts()
 
     def register(self, container):
         '''Register a container.  Iterate over all of the networks to
@@ -115,7 +119,6 @@ class hostRegistry (object):
 
             this['networks'][nwname] = nw['IPAddress']
 
-        self.update_hosts()
 
     def unregister(self, container):
         '''Remove all entries associated with a given container.'''
@@ -130,7 +133,6 @@ class hostRegistry (object):
             LOG.info('unregistered all entries for container %s (%s)',
                      name, container['Id'])
 
-        self.update_hosts()
 
     def update_hosts(self):
         '''Write out the hosts file and (optionally) trigger the
