@@ -4,9 +4,28 @@ import argparse
 import docker
 import logging
 import subprocess
+import contextlib
+import fcntl
 
 
 LOG = logging.getLogger(__name__)
+
+_hostfile_start_marker = '# === start dnsthing ==='
+_hostfile_end_marker = '# === end dnsthing ==='
+
+
+@contextlib.contextmanager
+def lock_file(fname):
+    with open(fname, "r+") as f:
+        LOG.debug('acquiring lock on %s', fname)
+        fcntl.lockf(f, fcntl.LOCK_EX)
+        LOG.debug('acquired lock on %s', fname)
+
+        yield f
+
+        LOG.debug('releasing lock on %s', fname)
+        fcntl.lockf(f, fcntl.LOCK_UN)
+        LOG.debug('released lock on %s', fname)
 
 
 class hostRegistry (object):
@@ -119,11 +138,28 @@ class hostRegistry (object):
 
         LOG.info('writing hosts to %s', self.hostsfile)
 
-        with open(self.hostsfile, 'w') as fd:
-            for name, data in self.byname.items():
-                for nwname, address in data['networks'].items():
-                    fd.write('%s %s.%s.%s\n' % (
-                        address, name, nwname, self.domain))
+        with lock_file(self.hostsfile) as f:
+            # get all existing entries, strip whitespace (including newline)
+            lines = [l.strip() for l in f.readlines()]
+            # find dnsthing section and remove it
+            try:
+                section_start = lines.index(_hostfile_start_marker)
+                section_end = lines.index(_hostfile_end_marker)
+                del lines[section_start:section_end + 1]
+            except ValueError:
+                pass
+            # create new dnsthing section
+            new_section = [
+                '%s %s.%s.%s' % (address, name, nwname, self.domain)
+                for name, data in self.byname.items()
+                for nwname, address in data['networks'].items()
+            ]
+            new_section = [_hostfile_start_marker] + new_section + [_hostfile_end_marker]
+            new_hostsfile = lines + new_section
+            # write out the file
+            f.seek(0)
+            f.truncate()
+            f.write('\n'.join(new_hostsfile))
 
         if self.onupdate:
             self.onupdate()
