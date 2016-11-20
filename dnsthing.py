@@ -21,11 +21,12 @@ def lock_file(fname):
         fcntl.lockf(f, fcntl.LOCK_EX)
         LOG.debug('acquired lock on %s', fname)
 
-        yield f
-
-        LOG.debug('releasing lock on %s', fname)
-        fcntl.lockf(f, fcntl.LOCK_UN)
-        LOG.debug('released lock on %s', fname)
+        try:
+            yield f
+        finally:
+            LOG.debug('releasing lock on %s', fname)
+            fcntl.lockf(f, fcntl.LOCK_UN)
+            LOG.debug('released lock on %s', fname)
 
 
 class hostRegistry (object):
