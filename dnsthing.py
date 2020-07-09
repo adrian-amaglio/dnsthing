@@ -110,14 +110,19 @@ class hostRegistry (object):
             'networks': {},
         }
 
-        self.byid[container.id] = this
-        self.byname[name] = this
-
         for nwname, nw in container.attrs['NetworkSettings']['Networks'].items():
             LOG.info('registering container %s network %s ip %s',
                      name, nwname, nw['IPAddress'])
+            if nw['IPAddress'] != '':
+                this['networks'][nwname] = nw['IPAddress']
 
-            this['networks'][nwname] = nw['IPAddress']
+        if this['networks']: # If empty dict
+            self.byid[container.id] = this
+            self.byname[name] = this
+        else:
+            LOG.debug('Not registering unconnected container (host or none mode).')
+
+
 
 
     def unregister(self, container):
