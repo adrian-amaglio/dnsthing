@@ -54,7 +54,7 @@ class hostRegistry (object):
                 continue
 
             try:
-                container = self.client.inspect_container(event['id'])
+                container = self.client.containers.get(event['id'])
             except docker.errors.NotFound:
                 container = {}
 
@@ -79,8 +79,7 @@ class hostRegistry (object):
     def scan(self):
         '''Register any existing containers'''
 
-        for container in self.client.containers():
-            container = self.client.inspect_container(container['Id'])
+        for container in self.client.containers.list():
             LOG.debug('scan: %s', container)
             self.register(container)
 
@@ -91,30 +90,30 @@ class hostRegistry (object):
         which this container is attached, and for each network add the
         name <container_name>.<network_name>.<domnain>.'''
 
-        name = container['Name']
+        name = container.name
         if name.startswith('/'):
             name = name[1:]
 
         if name in self.byname:
             LOG.warn('not registering %s (%s): name already registered to %s',
-                     name, container['Id'], self.byname[name])
+                     name, container.id, self.byname[name])
             return
 
-        if container['NetworkSettings'].get('Networks') is None:
+        if 'Networks' not in container.attrs['NetworkSettings']:
             LOG.warn('container %s (%s) has no network information',
-                     name, container['Id'])
+                     name, container.id)
             return
 
         this = {
             'name': name,
-            'id': container['Id'],
+            'id': container.id,
             'networks': {},
         }
 
-        self.byid[container['Id']] = this
+        self.byid[container.id] = this
         self.byname[name] = this
 
-        for nwname, nw in container['NetworkSettings']['Networks'].items():
+        for nwname, nw in container.attrs['NetworkSettings']['Networks'].items():
             LOG.info('registering container %s network %s ip %s',
                      name, nwname, nw['IPAddress'])
 
@@ -124,15 +123,15 @@ class hostRegistry (object):
     def unregister(self, container):
         '''Remove all entries associated with a given container.'''
 
-        name = container['Name']
+        name = container.name
         if name.startswith('/'):
             name = name[1:]
 
-        if container['Id'] in self.byid:
-            del self.byid[container['Id']]
+        if container.id in self.byid:
+            del self.byid[container.id]
             del self.byname[name]
             LOG.info('unregistered all entries for container %s (%s)',
-                     name, container['Id'])
+                     name, container.id)
 
 
     def update_hosts(self):
@@ -205,7 +204,7 @@ def main():
         run_update_command = run_external_command(args.update_command)
         registry_args['onupdate'] = run_update_command
 
-    client = docker.Client()
+    client = docker.client.from_env()
     registry = hostRegistry(client,
                             args.hostsfile,
                             **registry_args)
