@@ -6,7 +6,7 @@ import logging
 import subprocess
 import contextlib
 import fcntl
-
+from requests.exceptions import ConnectionError
 
 LOG = logging.getLogger(__name__)
 
@@ -209,7 +209,10 @@ def main():
                             args.hostsfile,
                             **registry_args)
 
-    registry.run()
+    try:
+        registry.run()
+    except ConnectionError:
+        LOG.fatal('urllib could not connect, is docker daemon running?')
 
 
 if __name__ == '__main__':
