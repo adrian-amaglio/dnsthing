@@ -19,3 +19,13 @@ This probably requires Docker 1.10 or later.
 - `--domain DOMAIN`, `-d DOMAIN`
 - `--hostsfile HOSTSFILE`, `-H HOSTSFILE`
 - `--update-command UPDATE_COMMAND`, `-c UPDATE_COMMAND`
+
+
+## Alternatives
+### DNS proxy server
+https://github.com/mageddo/dns-proxy-server  
+It is a very convenient tool, easy to set-up and it is more maintained.  
+Pro: It is all-in-one.  
+Cons: It is all-in-one.  
+This fork of dnsthings just have one job: watch for docker containers and maintain a list of their addresses.
+The DNS proxy server is also implementing a DNS server, a web UI and other things.
