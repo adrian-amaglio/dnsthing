@@ -30,13 +30,14 @@ def lock_file(fname):
 
 
 class hostRegistry (object):
-    def __init__(self, client, hostsfile, domain='docker', onupdate=None):
+    def __init__(self, client, hostsfile, domain='docker', onupdate=None, compose_name=False):
         self.client = client
         self.domain = domain
         self.hostsfile = hostsfile
         self.onupdate = onupdate
         self.byname = {}
         self.byid = {}
+        self.compose_name = compose_name
 
         super(hostRegistry, self).__init__()
 
@@ -90,7 +91,8 @@ class hostRegistry (object):
         which this container is attached, and for each network add the
         name <container_name>.<network_name>.<domnain>.'''
 
-        name = container.name
+        # Use docker compose simple name if asked
+        name = container.attrs['Config']['Labels']['com.docker.compose.service'] if self.compose_name else container.name
         if name.startswith('/'):
             name = name[1:]
 
@@ -111,6 +113,7 @@ class hostRegistry (object):
         }
 
         for nwname, nw in container.attrs['NetworkSettings']['Networks'].items():
+            nwname = nwname[:-8] if self.compose_name and nwname.endswith('_default') else nwname
             LOG.info('registering container %s network %s ip %s',
                      name, nwname, nw['IPAddress'])
             if nw['IPAddress'] != '':
@@ -187,8 +190,12 @@ def parse_args():
     p.add_argument('--hostsfile', '-H',
                    default='./hosts')
     p.add_argument('--update-command', '-c')
+    p.add_argument('--compose-name',
+                   action='store_const',
+                   const=True,
+                   dest='compose_name')
 
-    p.set_defaults(loglevel='WARN')
+    p.set_defaults(loglevel='WARN', compose_name=False)
     return p.parse_args()
 
 
@@ -203,7 +210,10 @@ def run_external_command(cmd):
 def main():
     args = parse_args()
     logging.basicConfig(level=args.loglevel)
-    registry_args = {}
+    registry_args = {
+            'domain': args.domain,
+            'compose_name': args.compose_name,
+            }
 
     if args.update_command:
         run_update_command = run_external_command(args.update_command)
