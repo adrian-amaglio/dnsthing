@@ -97,7 +97,7 @@ class hostRegistry (object):
 
 
         if 'Networks' not in container.attrs['NetworkSettings']:
-            LOG.warn('container %s (%s) has no network information',
+            LOG.warning('container %s (%s) has no network information',
                      name, container.id)
             return
 
