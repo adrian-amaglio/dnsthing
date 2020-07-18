@@ -35,7 +35,6 @@ class hostRegistry (object):
         self.domain = domain
         self.hostsfile = hostsfile
         self.onupdate = onupdate
-        self.byname = {}
         self.byid = {}
         self.compose_name = compose_name
 
@@ -96,10 +95,6 @@ class hostRegistry (object):
         if name.startswith('/'):
             name = name[1:]
 
-        if name in self.byname:
-            LOG.warn('not registering %s (%s): name already registered to %s',
-                     name, container.id, self.byname[name])
-            return
 
         if 'Networks' not in container.attrs['NetworkSettings']:
             LOG.warn('container %s (%s) has no network information',
@@ -121,7 +116,6 @@ class hostRegistry (object):
 
         if this['networks']: # If empty dict
             self.byid[container.id] = this
-            self.byname[name] = this
         else:
             LOG.debug('Not registering unconnected container (host or none mode).')
 
@@ -131,13 +125,18 @@ class hostRegistry (object):
     def unregister(self, container):
         '''Remove all entries associated with a given container.'''
 
-        name = container.name
+        if type(container) == 'dict':
+            # Can’t reproduce this bug locally
+            print('error, container is type dict')
+            print(container)
+            return
+
+        name = container.attrs['Config']['Labels']['com.docker.compose.service'] if self.compose_name else container.name
         if name.startswith('/'):
             name = name[1:]
 
         if container.id in self.byid:
             del self.byid[container.id]
-            del self.byname[name]
             LOG.info('unregistered all entries for container %s (%s)',
                      name, container.id)
 
@@ -160,8 +159,8 @@ class hostRegistry (object):
                 pass
             # create new dnsthing section
             new_section = [
-                '%s %s.%s.%s' % (address, name, nwname, self.domain)
-                for name, data in self.byname.items()
+                '%s %s.%s.%s' % (address, data['name'], nwname, self.domain)
+                for key, data in self.byid.items()
                 for nwname, address in data['networks'].items()
             ]
             new_section = [_hostfile_start_marker] + new_section + [_hostfile_end_marker]
