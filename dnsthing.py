@@ -125,7 +125,7 @@ class hostRegistry (object):
     def unregister(self, container):
         '''Remove all entries associated with a given container.'''
 
-        if type(container) == 'dict':
+        if type(container) is dict:
             # Can’t reproduce this bug locally
             print('error, container is type dict')
             print(container)
